@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface AnalyticsData {
   stats: {
@@ -44,6 +45,7 @@ export default function TranscriptBrowser() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const router = useRouter();
 
   useEffect(() => {
     fetchAnalytics();
@@ -162,7 +164,11 @@ export default function TranscriptBrowser() {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Recent Episodes</h3>
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {episodes.map((episode) => (
-            <EpisodeCard key={episode.podcast_id} episode={episode} />
+            <EpisodeCard 
+              key={episode.podcast_id} 
+              episode={episode} 
+              onClick={() => router.push(`/episode/${episode.podcast_id}`)}
+            />
           ))}
         </div>
       </div>
@@ -237,20 +243,31 @@ function ChunkTypeCard({ level, count, icon, color }: {
   );
 }
 
-function EpisodeCard({ episode }: { episode: AnalyticsData['episodes'][0] }) {
+function EpisodeCard({ episode, onClick }: { 
+  episode: AnalyticsData['episodes'][0];
+  onClick: () => void;
+}) {
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+    <div 
+      className="border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+      onClick={onClick}
+    >
       <div className="flex justify-between items-start mb-2">
-        <span className="text-xs text-gray-500 font-mono">
+        <span className="text-xs text-gray-500 font-mono group-hover:text-blue-600">
           ID: {episode.podcast_id.substring(0, 8)}...
         </span>
-        <span className="text-xs text-gray-500">
-          {new Date(episode.created_at).toLocaleDateString()}
-        </span>
+        <div className="flex items-center space-x-2">
+          <span className="text-xs text-gray-500">
+            {new Date(episode.created_at).toLocaleDateString()}
+          </span>
+          <span className="text-xs text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+            View Details →
+          </span>
+        </div>
       </div>
       
       {episode.summary && (
-        <p className="text-sm text-gray-700 mb-3 line-clamp-2">
+        <p className="text-sm text-gray-700 mb-3 line-clamp-2 group-hover:text-gray-900">
           {episode.summary}
         </p>
       )}
@@ -261,6 +278,9 @@ function EpisodeCard({ episode }: { episode: AnalyticsData['episodes'][0] }) {
           <span>📝 {episode.word_count.toLocaleString()} words</span>
           <span>⏱️ ~{episode.reading_time} min read</span>
         </div>
+        <span className="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+          Click to explore
+        </span>
       </div>
     </div>
   );
