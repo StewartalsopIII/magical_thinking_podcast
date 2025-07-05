@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Magical Thinking Podcast - RAG System
 
-## Getting Started
+A Next.js application for uploading podcast transcripts, processing them with text chunking, generating embeddings using DeepInfra's BGE-M3 model, and storing them in PostgreSQL with pgvector for semantic search.
 
-First, run the development server:
+## Features
+
+- **Drag & Drop Upload**: Easy file upload for .txt and .md files
+- **Markdown Processing**: Converts markdown to plain text while preserving original
+- **Text Chunking**: Uses LangChain's RecursiveCharacterTextSplitter 
+- **Vector Embeddings**: Generates embeddings using DeepInfra's BGE-M3 model
+- **PostgreSQL Storage**: Stores chunks and embeddings in PostgreSQL with pgvector
+
+## Setup
+
+### 1. Database Setup
+
+Start PostgreSQL with pgvector:
+
+```bash
+docker-compose up -d
+```
+
+### 2. Environment Variables
+
+Update `.env.local` with your DeepInfra API key:
+
+```
+DATABASE_URL="postgresql://transcript_user:transcript_password@localhost:5433/transcript_db"
+DEEPINFRA_API_KEY="your_deepinfra_api_key_here"
+```
+
+### 3. Install Dependencies
+
+```bash
+npm install
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000` to use the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Schema
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application uses a single `podcast_chunks` table with the following structure:
 
-## Learn More
+- `id`: Primary key
+- `podcast_id`: UUID to group chunks from the same transcript
+- `chunk_index`: Order of the chunk within the transcript
+- `text_content`: Plain text content of the chunk
+- `original_markdown`: Original markdown content (if applicable)
+- `embedding`: Vector embedding (1024 dimensions)
+- `timestamp_start/end`: Placeholder for future timestamp extraction
+- `metadata`: JSONB for additional metadata
+- `created_at/updated_at`: Timestamps
 
-To learn more about Next.js, take a look at the following resources:
+## API Endpoints
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `POST /api/upload-transcript`: Uploads and processes transcript files
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tech Stack
 
-## Deploy on Vercel
+- **Frontend**: Next.js 14 with App Router, React, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL with pgvector extension
+- **Text Processing**: LangChain text splitters, markdown-it
+- **Embeddings**: DeepInfra BGE-M3 model
+- **File Upload**: react-dropzone
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **File Upload**: Drag & drop interface using react-dropzone
+2. **Text Processing**: Markdown converted to plain text, then chunked
+3. **Embedding Generation**: Each chunk processed through DeepInfra API
+4. **Database Storage**: Chunks and embeddings stored in PostgreSQL
+5. **Error Handling**: Comprehensive error handling throughout the pipeline

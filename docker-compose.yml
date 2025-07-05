@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: pg-vector-db
+    environment:
+      POSTGRES_USER: transcript_user
+      POSTGRES_PASSWORD: transcript_password
+      POSTGRES_DB: transcript_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,103 +1,143 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import FileUpload from '@/components/FileUpload';
+import SearchTranscripts from '@/components/SearchTranscripts';
+import SearchResults from '@/components/SearchResults';
+
+interface SearchResult {
+  id: number;
+  podcast_id: string;
+  chunk_index: number;
+  text_content: string;
+  similarity: number;
+  created_at: string;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [uploadResult, setUploadResult] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [currentQuery, setCurrentQuery] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'upload' | 'search'>('upload');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleFileUpload = async (file: File) => {
+    setIsProcessing(true);
+    setUploadResult('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload-transcript', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setUploadResult(`Successfully processed ${result.chunksCreated} chunks for podcast: ${result.podcastId}`);
+      } else {
+        setUploadResult(`Error: ${result.error || 'Failed to process transcript'}`);
+      }
+    } catch (error) {
+      setUploadResult(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSearchResults = (results: SearchResult[], query: string) => {
+    setSearchResults(results);
+    setCurrentQuery(query);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Magical Thinking Podcast
+          </h1>
+          <p className="text-lg text-gray-600">
+            RAG System for Podcast Transcripts
+          </p>
+        </header>
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white rounded-lg p-1 shadow-sm border">
+            <button
+              onClick={() => setActiveTab('upload')}
+              className={`px-6 py-2 rounded-md transition-colors ${
+                activeTab === 'upload'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Upload Transcripts
+            </button>
+            <button
+              onClick={() => setActiveTab('search')}
+              className={`px-6 py-2 rounded-md transition-colors ${
+                activeTab === 'search'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Search Transcripts
+            </button>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Upload Tab */}
+        {activeTab === 'upload' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+              Upload Transcript
+            </h2>
+            
+            <FileUpload onFileUpload={handleFileUpload} />
+
+            {isProcessing && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                  <p className="text-blue-800">Processing transcript and generating embeddings...</p>
+                </div>
+              </div>
+            )}
+
+            {uploadResult && (
+              <div className={`mt-6 p-4 rounded-md ${
+                uploadResult.startsWith('Error') 
+                  ? 'bg-red-50 border border-red-200' 
+                  : 'bg-green-50 border border-green-200'
+              }`}>
+                <p className={uploadResult.startsWith('Error') ? 'text-red-800' : 'text-green-800'}>
+                  {uploadResult}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search Tab */}
+        {activeTab === 'search' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+                Search Transcripts
+              </h2>
+              
+              <SearchTranscripts onSearchResults={handleSearchResults} />
+            </div>
+
+            <SearchResults results={searchResults} query={currentQuery} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
