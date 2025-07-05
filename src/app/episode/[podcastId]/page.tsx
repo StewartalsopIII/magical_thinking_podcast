@@ -25,6 +25,9 @@ interface EpisodeData {
     topic_boundary?: boolean;
     timestamp_start: string;
     timestamp_end: string;
+    chapter_title?: string;
+    chapter_theme?: string;
+    chapter_index?: number;
     metadata: any;
     created_at: string;
   }>>;
@@ -255,6 +258,53 @@ export default function EpisodePage({ params }: { params: { podcastId: string } 
           </div>
         </div>
 
+        {/* Chapter Overview */}
+        {chunks['topic'] && chunks['topic'].some(chunk => chunk.chapter_title) && (
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">📚 Chapter Overview</h3>
+            <div className="space-y-3">
+              {chunks['topic']
+                .filter(chunk => chunk.chapter_title)
+                .sort((a, b) => (a.chapter_index || 0) - (b.chapter_index || 0))
+                .map((chapter) => (
+                  <div key={chapter.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-blue-600">
+                          Chapter {(chapter.chapter_index || 0) + 1}
+                        </span>
+                        {chapter.timestamp_start && chapter.timestamp_start !== '00:00:00' && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            ⏱️ {chapter.timestamp_start}
+                          </span>
+                        )}
+                      </div>
+                      {chapter.speaker && (
+                        <span className="text-xs text-gray-500">
+                          🎤 {chapter.speaker}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <h4 className="font-semibold text-gray-900 mb-1">
+                      {chapter.chapter_title}
+                    </h4>
+                    
+                    {chapter.chapter_theme && (
+                      <p className="text-sm text-gray-600 mb-2">
+                        {chapter.chapter_theme}
+                      </p>
+                    )}
+                    
+                    <div className="text-xs text-gray-500">
+                      {chapter.text_content.length.toLocaleString()} characters
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
         {/* Chunks Display */}
         {chunks[activeLevel] && (
           <div className="bg-white rounded-lg shadow-lg p-6">
@@ -270,6 +320,11 @@ export default function EpisodePage({ params }: { params: { podcastId: string } 
                       <span className="text-sm font-medium text-gray-600">
                         Chunk #{chunk.chunk_index + 1}
                       </span>
+                      {chunk.chapter_title && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          📚 {chunk.chapter_title}
+                        </span>
+                      )}
                       {chunk.speaker && (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           🎤 {chunk.speaker}
@@ -283,6 +338,12 @@ export default function EpisodePage({ params }: { params: { podcastId: string } 
                     </div>
                     <span className="text-xs text-gray-500">ID: {chunk.id}</span>
                   </div>
+                  
+                  {chunk.chapter_theme && (
+                    <div className="text-xs text-gray-600 mb-2 italic">
+                      {chunk.chapter_theme}
+                    </div>
+                  )}
                   
                   <div className="text-gray-800 text-sm leading-relaxed">
                     {chunk.text_content.length > 500 ? (

@@ -1,5 +1,10 @@
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { getEmbeddings } from './textProcessing';
+import { 
+  extractTimestampsAndCleanText, 
+  identifyChaptersWithLLM, 
+  matchChaptersToTimestamps 
+} from './chapterSegmentation';
 
 export interface ChunkData {
   text_content: string;
@@ -12,6 +17,9 @@ export interface ChunkData {
   full_text?: string;
   timestamp_start: string;
   timestamp_end: string;
+  chapter_title?: string;
+  chapter_theme?: string;
+  chapter_index?: number;
   metadata: Record<string, any>;
 }
 
@@ -146,58 +154,70 @@ export async function createMultiLevelChunks(
   };
   allChunks.push(episodeChunk);
 
-  // 2. Topic Level - Segment by topic boundaries
-  console.log('Creating topic-level chunks...');
-  const topicBoundaries = detectTopicBoundaries(plainText);
+  // 2. Topic Level - Use chapter segmentation for better topic boundaries
+  console.log('Creating topic-level chunks using chapter segmentation...');
+  let chapters = [];
+  let cleanText = plainText;
+  let timestampedLines = [];
   
-  for (let i = 0; i < topicBoundaries.length - 1; i++) {
-    const start = topicBoundaries[i];
-    const end = topicBoundaries[i + 1];
-    const topicText = plainText.substring(start, end).trim();
+  try {
+    // Extract timestamps and clean text for LLM analysis
+    const timestampData = extractTimestampsAndCleanText(originalMarkdown || plainText);
+    cleanText = timestampData.cleanText;
+    timestampedLines = timestampData.timestampedLines;
     
-    if (topicText.length > 200) { // Only create chunk if substantial
+    // Use LLM to identify chapters
+    const identifiedChapters = await identifyChaptersWithLLM(cleanText);
+    
+    // Match chapters to timestamps
+    chapters = matchChaptersToTimestamps(identifiedChapters, timestampedLines, cleanText);
+    
+    console.log(`Identified ${chapters.length} chapters using LLM`);
+  } catch (error) {
+    console.error('Chapter segmentation failed, falling back to basic topic detection:', error);
+    // Fallback to original topic detection if chapter segmentation fails
+    const topicBoundaries = detectTopicBoundaries(plainText);
+    chapters = topicBoundaries.slice(0, -1).map((start, i) => ({
+      title: `Topic ${i + 1}`,
+      theme: 'Content segment',
+      firstSentence: plainText.substring(start, start + 100).trim(),
+      startTimestamp: '00:00:00',
+      endTimestamp: '00:00:00',
+      startCharIndex: start,
+      endCharIndex: topicBoundaries[i + 1] || plainText.length
+    }));
+  }
+  
+  // Create topic chunks from chapters
+  chapters.forEach((chapter, index) => {
+    const startChar = chapter.startCharIndex || 0;
+    const endChar = chapter.endCharIndex || plainText.length;
+    const chapterText = plainText.substring(startChar, endChar).trim();
+    
+    if (chapterText.length > 200) { // Only create chunk if substantial
       const topicChunk: ChunkData = {
-        text_content: topicText,
+        text_content: chapterText,
         chunk_index: chunkCounter++,
         chunk_level: 'topic',
         parent_chunk_id: 1, // Reference to episode chunk (will be updated with actual ID)
-        speaker: extractSpeaker(topicText),
+        speaker: extractSpeaker(chapterText),
         topic_boundary: true,
-        timestamp_start: '00:00:00',
-        timestamp_end: '00:00:00',
+        timestamp_start: chapter.startTimestamp || '00:00:00',
+        timestamp_end: chapter.endTimestamp || '00:00:00',
+        chapter_title: chapter.title,
+        chapter_theme: chapter.theme,
+        chapter_index: index,
         metadata: { 
-          topic_segment: i + 1,
-          segment_start: start,
-          segment_end: end
+          topic_segment: index + 1,
+          segment_start: startChar,
+          segment_end: endChar,
+          is_chapter: true,
+          chapter_first_sentence: chapter.firstSentence
         }
       };
       allChunks.push(topicChunk);
     }
-  }
-
-  // Handle final segment
-  const lastBoundary = topicBoundaries[topicBoundaries.length - 1];
-  if (lastBoundary < plainText.length - 200) {
-    const finalText = plainText.substring(lastBoundary).trim();
-    if (finalText.length > 200) {
-      const finalChunk: ChunkData = {
-        text_content: finalText,
-        chunk_index: chunkCounter++,
-        chunk_level: 'topic',
-        parent_chunk_id: 1,
-        speaker: extractSpeaker(finalText),
-        topic_boundary: true,
-        timestamp_start: '00:00:00',
-        timestamp_end: '00:00:00',
-        metadata: { 
-          topic_segment: topicBoundaries.length,
-          segment_start: lastBoundary,
-          segment_end: plainText.length
-        }
-      };
-      allChunks.push(finalChunk);
-    }
-  }
+  });
 
   // 3. Paragraph Level - Enhanced current approach
   console.log('Creating paragraph-level chunks...');

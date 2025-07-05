@@ -46,6 +46,9 @@ export async function GET(
         topic_boundary,
         timestamp_start,
         timestamp_end,
+        chapter_title,
+        chapter_theme,
+        chapter_index,
         metadata,
         created_at
       FROM podcast_chunks 
@@ -68,6 +71,9 @@ export async function GET(
         topic_boundary: chunk.topic_boundary,
         timestamp_start: chunk.timestamp_start,
         timestamp_end: chunk.timestamp_end,
+        chapter_title: chunk.chapter_title,
+        chapter_theme: chunk.chapter_theme,
+        chapter_index: chunk.chapter_index,
         metadata: chunk.metadata,
         created_at: chunk.created_at
       });
