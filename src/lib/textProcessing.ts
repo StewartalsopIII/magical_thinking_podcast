@@ -1,12 +1,32 @@
-import MarkdownIt from 'markdown-it';
-import mdPlainText from 'markdown-it-plain-text';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 
 export async function markdownToPlainText(markdownContent: string): Promise<string> {
-  const md = new MarkdownIt();
-  md.use(mdPlainText);
-  md.render(markdownContent);
-  return (md as any).plainText || '';
+  // Simple markdown to plain text conversion
+  return markdownContent
+    // Remove headers
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove bold/italic
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Remove code blocks
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove links but keep text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove images
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    // Remove horizontal rules
+    .replace(/^---+$/gm, '')
+    // Remove blockquotes
+    .replace(/^>\s+/gm, '')
+    // Remove list markers
+    .replace(/^[\s]*[-*+]\s+/gm, '')
+    .replace(/^[\s]*\d+\.\s+/gm, '')
+    // Clean up extra whitespace
+    .replace(/\n\s*\n/g, '\n\n')
+    .trim();
 }
 
 export async function chunkTranscript(plainText: string) {

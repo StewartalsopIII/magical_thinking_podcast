@@ -4,6 +4,7 @@ import { useState } from 'react';
 import FileUpload from '@/components/FileUpload';
 import SearchTranscripts from '@/components/SearchTranscripts';
 import SearchResults from '@/components/SearchResults';
+import TranscriptBrowser from '@/components/TranscriptBrowser';
 
 interface SearchResult {
   id: number;
@@ -19,7 +20,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'upload' | 'search'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'search' | 'browse'>('upload');
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
@@ -88,6 +89,16 @@ export default function Home() {
             >
               Search Transcripts
             </button>
+            <button
+              onClick={() => setActiveTab('browse')}
+              className={`px-6 py-2 rounded-md transition-colors ${
+                activeTab === 'browse'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Browse Transcripts
+            </button>
           </div>
         </div>
 
@@ -135,6 +146,22 @@ export default function Home() {
             </div>
 
             <SearchResults results={searchResults} query={currentQuery} />
+          </div>
+        )}
+
+        {/* Browse Tab */}
+        {activeTab === 'browse' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+                Browse All Transcripts
+              </h2>
+              <p className="text-center text-gray-600 mb-6">
+                Explore your transcript collection with analytics and insights
+              </p>
+            </div>
+
+            <TranscriptBrowser />
           </div>
         )}
       </div>

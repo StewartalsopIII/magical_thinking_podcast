@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDb, client } from '@/lib/db';
-import { markdownToPlainText, chunkTranscript, getEmbeddings } from '@/lib/textProcessing';
+import { markdownToPlainText, getEmbeddings } from '@/lib/textProcessing';
+import { createMultiLevelChunks, ChunkData } from '@/lib/multiLevelChunking';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -31,9 +32,19 @@ export async function POST(request: NextRequest) {
       processedText = await markdownToPlainText(fileContent);
     }
 
-    const chunks = await chunkTranscript(processedText);
+    console.log('Starting multi-level chunking...');
+    const allChunks = await createMultiLevelChunks(processedText, originalMarkdown);
     
-    const texts = chunks.map(chunk => chunk.text_content);
+    // Generate embeddings for all chunks
+    console.log('Generating embeddings for all chunks...');
+    const texts = allChunks.map(chunk => {
+      // For episode-level chunks, use summary for embedding if available
+      if (chunk.chunk_level === 'episode' && chunk.summary) {
+        return chunk.summary;
+      }
+      return chunk.text_content;
+    });
+    
     const embeddings = await getEmbeddings(texts);
 
     await connectDb();
@@ -42,12 +53,21 @@ export async function POST(request: NextRequest) {
     try {
       await client.query('BEGIN');
 
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
+      // Store all chunks with their hierarchical relationships
+      const insertedChunks: { [key: number]: number } = {}; // Map chunk_index to actual database ID
+
+      for (let i = 0; i < allChunks.length; i++) {
+        const chunk = allChunks[i];
         const embedding = embeddings[i];
         const embeddingVector = `[${embedding.join(',')}]`;
 
-        await client.query(
+        // Resolve parent_chunk_id to actual database ID
+        let actualParentId = null;
+        if (chunk.parent_chunk_id !== undefined) {
+          actualParentId = insertedChunks[chunk.parent_chunk_id] || null;
+        }
+
+        const result = await client.query(
           `INSERT INTO podcast_chunks (
             podcast_id,
             chunk_index,
@@ -56,8 +76,15 @@ export async function POST(request: NextRequest) {
             embedding,
             timestamp_start,
             timestamp_end,
-            metadata
-          ) VALUES ($1, $2, $3, $4, $5::vector, $6, $7, $8::jsonb)`,
+            metadata,
+            chunk_level,
+            parent_chunk_id,
+            summary,
+            speaker,
+            topic_boundary,
+            full_text
+          ) VALUES ($1, $2, $3, $4, $5::vector, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)
+          RETURNING id`,
           [
             podcastId,
             chunk.chunk_index,
@@ -66,19 +93,37 @@ export async function POST(request: NextRequest) {
             embeddingVector,
             chunk.timestamp_start,
             chunk.timestamp_end,
-            JSON.stringify(chunk.metadata || {})
+            JSON.stringify(chunk.metadata || {}),
+            chunk.chunk_level,
+            actualParentId,
+            chunk.summary || null,
+            chunk.speaker || null,
+            chunk.topic_boundary || false,
+            chunk.full_text || null
           ]
         );
+
+        // Store the mapping of chunk_index to actual database ID
+        insertedChunks[chunk.chunk_index] = result.rows[0].id;
       }
 
       await client.query('COMMIT');
-      console.log(`Successfully saved ${chunks.length} chunks for podcast ID: ${podcastId}`);
+      
+      const chunkCounts = {
+        episode: allChunks.filter(c => c.chunk_level === 'episode').length,
+        topic: allChunks.filter(c => c.chunk_level === 'topic').length,
+        paragraph: allChunks.filter(c => c.chunk_level === 'paragraph').length,
+        sentence: allChunks.filter(c => c.chunk_level === 'sentence').length
+      };
+
+      console.log(`Successfully saved ${allChunks.length} chunks for podcast ID: ${podcastId}`, chunkCounts);
 
       return NextResponse.json({
         success: true,
         podcastId,
-        chunksCreated: chunks.length,
-        message: 'Transcript processed successfully'
+        chunksCreated: allChunks.length,
+        chunkBreakdown: chunkCounts,
+        message: 'Transcript processed with multi-level chunking'
       });
 
     } catch (dbError) {
