@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
         topic_boundary,
         metadata,
         full_text,
+        timestamp_start,
+        timestamp_end,
         1 - (embedding <=> $1::vector) AS similarity
        FROM podcast_chunks
        WHERE embedding IS NOT NULL
@@ -66,7 +68,9 @@ export async function POST(request: NextRequest) {
         speaker: row.speaker,
         topic_boundary: row.topic_boundary,
         metadata: row.metadata,
-        full_text: row.full_text
+        full_text: row.full_text,
+        timestamp_start: row.timestamp_start,
+        timestamp_end: row.timestamp_end
       };
     });
 
@@ -89,7 +93,9 @@ export async function POST(request: NextRequest) {
       summary: row.summary,
       speaker: row.speaker,
       topic_boundary: row.topic_boundary,
-      full_text: row.full_text
+      full_text: row.full_text,
+      timestamp_start: row.timestamp_start,
+      timestamp_end: row.timestamp_end
     }));
 
     // Add context to top results

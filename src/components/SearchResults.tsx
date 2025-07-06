@@ -12,6 +12,8 @@ interface SearchResult {
   summary?: string;
   speaker?: string;
   topic_boundary?: boolean;
+  timestamp_start?: string;
+  timestamp_end?: string;
   full_text?: string;
   context?: SearchResult[];
 }
@@ -104,6 +106,12 @@ export default function SearchResults({ results, query }: SearchResultsProps) {
                   {result.speaker && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                       🎤 {result.speaker}
+                    </span>
+                  )}
+
+                  {result.timestamp_start && result.timestamp_start !== '00:00:00' && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      ⏱️ {result.timestamp_start}
                     </span>
                   )}
                   {result.topic_boundary && (

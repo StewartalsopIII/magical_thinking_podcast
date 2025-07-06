@@ -18,6 +18,13 @@ export interface SearchResult {
   summary?: string;
   speaker?: string;
   topic_boundary?: boolean;
+  // Timestamp boundaries within the episode (useful for locating clips)
+  timestamp_start?: string;
+  timestamp_end?: string;
+
+  // Episode-level context (filled in by the search API via join or by the UI later)
+  episode_summary?: string;
+  guest_name?: string;
   context?: SearchResult[]; // Parent and child chunks for context
 }
 
