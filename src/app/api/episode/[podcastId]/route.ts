@@ -22,7 +22,8 @@ export async function GET(
         summary,
         full_text,
         created_at,
-        metadata
+        metadata,
+        guest_name
       FROM podcast_chunks 
       WHERE podcast_id = $1 AND chunk_level = 'episode'
       LIMIT 1
@@ -124,6 +125,7 @@ export async function GET(
         full_text: episode.full_text,
         created_at: episode.created_at,
         metadata: episode.metadata,
+        guest_name: episode.guest_name,
         character_count: fullTextLength,
         word_count: wordCount,
         reading_time: readingTime

@@ -85,8 +85,9 @@ export async function POST(request: NextRequest) {
             full_text,
             chapter_title,
             chapter_theme,
-            chapter_index
-          ) VALUES ($1, $2, $3, $4, $5::vector, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            chapter_index,
+            guest_name
+          ) VALUES ($1, $2, $3, $4, $5::vector, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
           RETURNING id`,
           [
             podcastId,
@@ -105,7 +106,8 @@ export async function POST(request: NextRequest) {
             chunk.full_text || null,
             chunk.chapter_title || null,
             chunk.chapter_theme || null,
-            chunk.chapter_index || null
+            chunk.chapter_index || null,
+            chunk.guest_name || null
           ]
         );
 

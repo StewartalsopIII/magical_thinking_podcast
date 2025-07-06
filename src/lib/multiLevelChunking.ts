@@ -20,7 +20,61 @@ export interface ChunkData {
   chapter_title?: string;
   chapter_theme?: string;
   chapter_index?: number;
+  guest_name?: string;
   metadata: Record<string, any>;
+}
+
+// Extract guest name from transcript using LLM
+async function extractGuestName(fullText: string): Promise<string> {
+  const DEEPINFRA_API_KEY = process.env.DEEPINFRA_API_KEY;
+  
+  if (!DEEPINFRA_API_KEY) {
+    return 'Guest Interview'; // Fallback if no API key
+  }
+
+  // Take first 2000 characters to find the guest introduction
+  const introText = fullText.substring(0, 2000);
+
+  const prompt = `Analyze this podcast transcript and identify the guest being interviewed. Return only the guest's name, or "Guest Interview" if unclear.
+
+${introText}
+
+Guest name:`;
+
+  try {
+    const response = await fetch("https://api.deepinfra.com/v1/openai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${DEEPINFRA_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        max_tokens: 50,
+        temperature: 0.1
+      }),
+    });
+
+    if (!response.ok) {
+      return 'Guest Interview';
+    }
+
+    const data = await response.json();
+    const guestName = data.choices[0]?.message?.content?.trim() || 'Guest Interview';
+    
+    // Clean up the response and ensure it's reasonable
+    const cleanName = guestName.replace(/['"]/g, '').trim();
+    return cleanName.length > 50 ? 'Guest Interview' : cleanName;
+  } catch (error) {
+    console.error('Guest name extraction failed:', error);
+    return 'Guest Interview';
+  }
 }
 
 // Episode-level summarization using DeepInfra
@@ -36,7 +90,7 @@ async function generateEpisodeSummary(fullText: string): Promise<string> {
     ? fullText.substring(0, 6000) + "..."
     : fullText;
 
-  const prompt = `Please provide a concise summary of this podcast transcript in 2-3 sentences, focusing on the main topics discussed:
+  const prompt = `Please provide a concise summary of this podcast transcript, focusing on the main topics discussed:
 
 ${truncatedText}
 
@@ -132,15 +186,19 @@ export async function createMultiLevelChunks(
   const allChunks: ChunkData[] = [];
   let chunkCounter = 0;
 
-  // 1. Episode Level - Generate summary and create episode chunk
+  // 1. Episode Level - Generate summary and extract guest name
   console.log('Creating episode-level chunk...');
-  const episodeSummary = await generateEpisodeSummary(plainText);
+  const [episodeSummary, guestName] = await Promise.all([
+    generateEpisodeSummary(plainText),
+    extractGuestName(plainText)
+  ]);
   
   const episodeChunk: ChunkData = {
     text_content: plainText.length > 8000 ? plainText.substring(0, 8000) + "..." : plainText,
     chunk_index: chunkCounter++,
     chunk_level: 'episode',
     summary: episodeSummary,
+    guest_name: guestName,
     full_text: plainText, // Store complete transcript
     timestamp_start: '00:00:00',
     timestamp_end: '99:99:99',
@@ -149,7 +207,8 @@ export async function createMultiLevelChunks(
       has_summary: true,
       original_markdown: originalMarkdown ? true : false,
       word_count: plainText.split(/\s+/).length,
-      has_full_text: true
+      has_full_text: true,
+      guest_name: guestName
     }
   };
   allChunks.push(episodeChunk);

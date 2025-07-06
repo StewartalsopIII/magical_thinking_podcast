@@ -11,6 +11,7 @@ interface EpisodeData {
     full_text: string;
     created_at: string;
     metadata: any;
+    guest_name: string;
     character_count: number;
     word_count: number;
     reading_time: number;
@@ -151,7 +152,9 @@ export default function EpisodePage({ params }: { params: { podcastId: string } 
           
           <div className="bg-white rounded-lg shadow-lg p-6">
             <div className="flex justify-between items-start mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">Episode Details</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {episode.guest_name || 'Episode Details'}
+              </h1>
               <span className="text-sm text-gray-500">
                 {new Date(episode.created_at).toLocaleDateString()}
               </span>
@@ -166,7 +169,9 @@ export default function EpisodePage({ params }: { params: { podcastId: string } 
             {episode.summary && (
               <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-md">
                 <h3 className="text-lg font-medium text-purple-800 mb-2">Episode Summary</h3>
-                <p className="text-purple-700">{episode.summary}</p>
+                <p className="text-purple-700">
+                  {episode.summary.replace(/^Here is a \d+-\d+ sentence summary of the podcast transcript[.:]\s*/i, '')}
+                </p>
               </div>
             )}
 
