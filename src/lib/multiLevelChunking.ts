@@ -217,7 +217,7 @@ export async function createMultiLevelChunks(
   console.log('Creating topic-level chunks using chapter segmentation...');
   let chapters = [];
   let cleanText = plainText;
-  let timestampedLines = [];
+  let timestampedLines: { timestamp: string; text: string; charIndex: number }[] = [];
   
   try {
     // Extract timestamps and clean text for LLM analysis
@@ -278,6 +278,29 @@ export async function createMultiLevelChunks(
     }
   });
 
+  // Helper to map a character index in the transcript to the closest timestamp
+  const mapCharIndexToTimestamp = (charIdx: number): { start: string; end: string } => {
+    if (!timestampedLines || timestampedLines.length === 0) {
+      return { start: '00:00:00', end: '00:00:00' };
+    }
+
+    // timestampedLines is sorted as we built it in order of encounter
+    let startTs = '00:00:00';
+    let endTs = '99:99:99';
+
+    for (let i = 0; i < timestampedLines.length; i++) {
+      const line = timestampedLines[i];
+      if (line.charIndex <= charIdx) {
+        startTs = line.timestamp;
+        endTs = timestampedLines[i + 1]?.timestamp || '99:99:99';
+      } else {
+        break;
+      }
+    }
+
+    return { start: startTs, end: endTs };
+  };
+
   // 3. Paragraph Level - Enhanced current approach
   console.log('Creating paragraph-level chunks...');
   const paragraphSplitter = new RecursiveCharacterTextSplitter({
@@ -298,14 +321,17 @@ export async function createMultiLevelChunks(
       return paragraphStart >= topicStart && paragraphStart < topicEnd;
     });
 
+    // Map char index to timestamps
+    const ts = mapCharIndexToTimestamp(paragraphStart);
+
     const paragraphChunk: ChunkData = {
       text_content: doc.pageContent,
       chunk_index: chunkCounter++,
       chunk_level: 'paragraph',
       parent_chunk_id: parentTopic?.chunk_index || undefined,
       speaker: extractSpeaker(doc.pageContent),
-      timestamp_start: '00:00:00',
-      timestamp_end: '00:00:00',
+      timestamp_start: ts.start,
+      timestamp_end: ts.end,
       metadata: { 
         paragraph_index: index,
         char_start: paragraphStart,
@@ -331,14 +357,17 @@ export async function createMultiLevelChunks(
         chunk.text_content.includes(sentence)
       );
 
+      // Map char index to timestamps
+      const tsSentence = mapCharIndexToTimestamp(sentenceStart);
+
       const sentenceChunk: ChunkData = {
         text_content: sentence + '.', // Add period back
         chunk_index: chunkCounter++,
         chunk_level: 'sentence',
         parent_chunk_id: parentParagraph?.chunk_index || undefined,
         speaker: extractSpeaker(sentence),
-        timestamp_start: '00:00:00',
-        timestamp_end: '00:00:00',
+        timestamp_start: tsSentence.start,
+        timestamp_end: tsSentence.end,
         metadata: { 
           sentence_index: index,
           char_start: sentenceStart,
